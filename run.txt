@@ -1,0 +1,2 @@
+roslaunch aloam_velodyne aloam_velodyne_VLP_16.launch
+rosbag play YOUR_DATASET_FOLDER/nsh_indoor_outdoor.bag
