@@ -11,42 +11,70 @@
 
 struct LidarEdgeFactor
 {
+	// 构造函数
 	LidarEdgeFactor(Eigen::Vector3d curr_point_, Eigen::Vector3d last_point_a_,
 					Eigen::Vector3d last_point_b_, double s_)
 		: curr_point(curr_point_), last_point_a(last_point_a_), last_point_b(last_point_b_), s(s_) {}
-
+	// 仿函数
 	template <typename T>
+	// 参数块1：旋转矩阵，参数块2：平移矩阵，残差块
 	bool operator()(const T *q, const T *t, T *residual) const
 	{
 
+		// 将double数组转成eigen的数据结构，注意这里必须都写成模板
 		Eigen::Matrix<T, 3, 1> cp{T(curr_point.x()), T(curr_point.y()), T(curr_point.z())};
 		Eigen::Matrix<T, 3, 1> lpa{T(last_point_a.x()), T(last_point_a.y()), T(last_point_a.z())};
 		Eigen::Matrix<T, 3, 1> lpb{T(last_point_b.x()), T(last_point_b.y()), T(last_point_b.z())};
 
 		//Eigen::Quaternion<T> q_last_curr{q[3], T(s) * q[0], T(s) * q[1], T(s) * q[2]};
+		// 待优化变量：R_curr2last
 		Eigen::Quaternion<T> q_last_curr{q[3], q[0], q[1], q[2]};
 		Eigen::Quaternion<T> q_identity{T(1), T(0), T(0), T(0)};
+
+		// 计算的是上一帧到当前帧的位姿变换，因此根据匀速运动模型(一帧中(100s)的运动都是匀速运动)，计算该点对应的位姿
+		// R_curr2last  = R_end2stat ，end - start = 100ms，
+		// R_end2start * Δt/T  = R_curr2last
 		q_last_curr = q_identity.slerp(T(s), q_last_curr);
+		// t = t * Δt/T
 		Eigen::Matrix<T, 3, 1> t_last_curr{T(s) * t[0], T(s) * t[1], T(s) * t[2]};
 
 		Eigen::Matrix<T, 3, 1> lp;
+		// 把当前点，根据当前计算的帧间位姿变换到上一帧的雷达坐标系，在同一个坐标系下操作
+		// R_curr2last * P_curr  + t = P_last
 		lp = q_last_curr * cp + t_last_curr;
+		/*
+		点到线的距离 = 三角形的面积/底边
+		   . lpa
+		  /↘		
+		 /     .lp
+		. lpb
+              |(lp - lpa)×(lp - lpb)|
+		dε = ------------------------- = 平行四边形的面积 / 底边
+		           |(lpa - lpb)|
 
+		loss = ∑dε_i + ∑dξ_i = D(lp_i) = D( G(p_curr, T_curr2last) )
+
+		*/
+		// 平行四边形的面积 = (lp - lpa)×(lp - lpb)
 		Eigen::Matrix<T, 3, 1> nu = (lp - lpa).cross(lp - lpb);
+		// 低边向量
 		Eigen::Matrix<T, 3, 1> de = lpa - lpb;
-
+		// 参数的模是该点到底边的垂线长度
+		// 点到线的长度向量，该向量的摸长就是点到直线的距离
 		residual[0] = nu.x() / de.norm();
 		residual[1] = nu.y() / de.norm();
 		residual[2] = nu.z() / de.norm();
 
 		return true;
 	}
-
+	// 当前帧的角点、上一帧的最近角点、上一帧的次近角点、Δt/T
 	static ceres::CostFunction *Create(const Eigen::Vector3d curr_point_, const Eigen::Vector3d last_point_a_,
 									   const Eigen::Vector3d last_point_b_, const double s_)
 	{
+		// <自定义的类型, 残差维度, 四元数维度, 平移量维度>
 		return (new ceres::AutoDiffCostFunction<
 				LidarEdgeFactor, 3, 4, 3>(
+			// 调用构造函数
 			new LidarEdgeFactor(curr_point_, last_point_a_, last_point_b_, s_)));
 	}
 
@@ -61,6 +89,8 @@ struct LidarPlaneFactor
 		: curr_point(curr_point_), last_point_j(last_point_j_), last_point_l(last_point_l_),
 		  last_point_m(last_point_m_), s(s_)
 	{
+		// a×b = |a||b|sinΘ，平面法向量垂直于平面
+		// 平面单位法向量 = |(j - l)×(j - m)|， ljm ⊥ (j - l)，ljm ⊥ (j - m)
 		ljm_norm = (last_point_j - last_point_l).cross(last_point_j - last_point_m);
 		ljm_norm.normalize();
 	}
@@ -68,11 +98,31 @@ struct LidarPlaneFactor
 	template <typename T>
 	bool operator()(const T *q, const T *t, T *residual) const
 	{
+		/*
+		       m
+			   .        
+              / \     .lp   .cp
+		-----.---.-----
+			 j    l
 
+		| ljm
+		|→→→→→↗ .lp
+		|  Θ↗ 
+	   j.↗
+		|
+
+		a·b = |a||b|cosΘ，|ljm| = 1
+		(lp - lpj)·ljm = |(lp - lpj)|cosΘ = 高
+
+		*/
+
+		// curr
 		Eigen::Matrix<T, 3, 1> cp{T(curr_point.x()), T(curr_point.y()), T(curr_point.z())};
+		// j
 		Eigen::Matrix<T, 3, 1> lpj{T(last_point_j.x()), T(last_point_j.y()), T(last_point_j.z())};
 		//Eigen::Matrix<T, 3, 1> lpl{T(last_point_l.x()), T(last_point_l.y()), T(last_point_l.z())};
 		//Eigen::Matrix<T, 3, 1> lpm{T(last_point_m.x()), T(last_point_m.y()), T(last_point_m.z())};
+		// ljm
 		Eigen::Matrix<T, 3, 1> ljm{T(ljm_norm.x()), T(ljm_norm.y()), T(ljm_norm.z())};
 
 		//Eigen::Quaternion<T> q_last_curr{q[3], T(s) * q[0], T(s) * q[1], T(s) * q[2]};
@@ -80,15 +130,15 @@ struct LidarPlaneFactor
 		Eigen::Quaternion<T> q_identity{T(1), T(0), T(0), T(0)};
 		q_last_curr = q_identity.slerp(T(s), q_last_curr);
 		Eigen::Matrix<T, 3, 1> t_last_curr{T(s) * t[0], T(s) * t[1], T(s) * t[2]};
-
 		Eigen::Matrix<T, 3, 1> lp;
+		// R_curr2last * P_curr  + t = P_last
 		lp = q_last_curr * cp + t_last_curr;
-
 		residual[0] = (lp - lpj).dot(ljm);
 
 		return true;
 	}
-
+	
+	// curr、j、l、m 
 	static ceres::CostFunction *Create(const Eigen::Vector3d curr_point_, const Eigen::Vector3d last_point_j_,
 									   const Eigen::Vector3d last_point_l_, const Eigen::Vector3d last_point_m_,
 									   const double s_)
