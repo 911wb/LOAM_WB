@@ -73,7 +73,7 @@ double timeCornerPointsLessSharp = 0;
 double timeSurfPointsFlat = 0;
 double timeSurfPointsLessFlat = 0;
 double timeLaserCloudFullRes = 0;
-
+// 创建KD-Tree对象
 pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeCornerLast(new pcl::KdTreeFLANN<pcl::PointXYZI>());
 pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeSurfLast(new pcl::KdTreeFLANN<pcl::PointXYZI>());
 
@@ -251,7 +251,7 @@ int main(int argc, char **argv)
     ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2>("/velodyne_cloud_3", 100);
     // 发布里程计数据(位姿轨迹)给后端，后端接收
     ros::Publisher pubLaserOdometry = nh.advertise<nav_msgs::Odometry>("/laser_odom_to_init", 100);
-    // 发布位姿轨迹
+    // 发布前端里程计的高频低精 位姿轨迹
     ros::Publisher pubLaserPath = nh.advertise<nav_msgs::Path>("/laser_odom_path", 100);
 
     nav_msgs::Path laserPath;
@@ -381,8 +381,15 @@ int main(int argc, char **argv)
                     {
                         // 运动畸变，输出去畸变后的角点，也就是运动补偿到起始时刻的角点
                         TransformToStart(&(cornerPointsSharp->points[i]), &pointSel);
-
-                        // 在上一帧所有角点(弱角点)构成的kdtree中寻找距离当前帧最近的一个点   因为前面有初始化的判断 所有 第二帧肯定有上一帧
+                        /*  
+                        brief Search for k-nearest neighbors for the given query point.  //搜素给定点的K近邻。
+                            参数1： 给定的查询点。
+                            参数2： 要搜索的近邻点的数量
+                            参数3： 输出的k个近邻点索引
+                            参数4： 输出查询点到邻近点的平方距离
+                            返回值：返回找到的近邻点的数量
+                        在上一帧所有角点(弱角点)构成的kdtree中寻找距离当前帧最近的一个点   因为前面有初始化的判断 所有 第二帧肯定有上一帧
+                        */
                         kdtreeCornerLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
 
                         int closestPointInd = -1, minPointInd2 = -1;
@@ -718,6 +725,7 @@ int main(int argc, char **argv)
 
             // std::cout << "the size of corner last is " << laserCloudCornerLastNum << ", and the size of surf last is " << laserCloudSurfLastNum << '\n';
             // kdtree设置当前帧，用来下一帧lidar odom使用，把当前帧点云送到KD树，用来下一帧的匹配
+            // 向KDTREE中传入数据，即将点云数据设置成KD-Tree结构
             kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
             kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
 

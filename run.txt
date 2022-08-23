@@ -1,2 +1,9 @@
+
+
+roslaunch aloam_velodyne kitti_helper.launch
+roscore rosbag play mykitti.bag
+rviz + camera_init
+
+
 roslaunch aloam_velodyne aloam_velodyne_VLP_16.launch
-rosbag play YOUR_DATASET_FOLDER/nsh_indoor_outdoor.bag
+rosbag play mykitti.bag

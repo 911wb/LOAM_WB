@@ -1,0 +1,81 @@
+
+token代替密码:
+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
+取消本地目录下关联的远程库:
+git remote remove origin
+
+
+-----------------上传本地代码到远程仓库(master)--------------------------------
+git init
+git add ./
+git commit -m "first commit"
+git branch -M master
+git remote add origin https://github.com/911wb/demos01_ws.git
+git push -u origin master
+
+
+--------------更新本地代码到远程仓库(master)---------------------------------
+1、git status
+查看当前有变更的代码文件。
+
+2、git add ./
+你本地所有修改了的文件添加到暂存区。
+
+3、git commit -m "xxxxx"
+引号里面是你的介绍，就是你的这次的提交是什么内容，便于你以后查看，这个是将索引的当前内容与描述更改的用户和日志消息一起存储在新的提交中。
+
+4、git pull origin master
+把远程分支最新的代码下载到本地对应的分支中，将远程最新的代码先跟你本地的代码合并一下，如果确定远程没有更新，可以不用这个，最好是每次都执行以下，完成之后打开代码查看有没有冲突，并解决，如果有冲突解决完成以后再次执行2跟3的操作。这里master可以是其他分支名字。
+注：如果解决冲突后，需再次执行步骤2和3。
+5、git push origin master
+将代码推至远程就可以了。这里master可以是其他分支名字。
+
+
+----------------------分支branch(wb)----------------------
+在项目开始前，应该首先对git分支的管理有一个明确的规划，明确每个分支担当的功能，保证项目正常推进，不会混乱，在项目过程中不能在master分支上进行操作，应该在自己的分支做各种修改，测试完成后觉得没有问题，需要merge回master上
+
+git branch -D your_name 删除本地分支(需要在主分支上进行删除)
+
+1.查看分支的状态
+git branch
+2.建立新分支，切换到新分支 
+git branch your_name
+git checkout your_name
+git branch
+
+4.开发分支，修改代码......
+git status
+查看当前有变更的代码文件
+
+5.修改完后，修改完后向新的分支进行提交
+git add .
+git commit -m "xxxxx"
+
+6.提交完成后看看各个分支修改记录 git log --oneline -5 看前五次的修改
+git log
+
+7.切换到master分支
+git checkout master
+
+8.将新分支修改的内容合并到主分支
+git merge your_name
+git log
+
+9.git pull origin master
+把远程分支最新的代码下载到本地对应的分支中
+10.git push origin master
+将代码推至远程就可以了。这里master可以是其他分支名字
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -137,11 +137,11 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
     TicToc t_prepare;
     std::vector<int> scanStartInd(N_SCANS, 0);
     std::vector<int> scanEndInd(N_SCANS, 0);
-
+    //声明pcl点云
     pcl::PointCloud<pcl::PointXYZ> laserCloudIn;
     // pcl不能直接处理ros消息格式，将ros格式的点云数据转换为激光数据
     pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
-
+    //这个变量保存了下面去除nan点的序号
     std::vector<int> indices;
     // 取出点云中的nan点，即无返回的点
     pcl::removeNaNFromPointCloud(laserCloudIn, laserCloudIn, indices);
@@ -159,12 +159,13 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
     X/Y = sin(α)/cos(α) = tan(α)
     α = arctan(X/Y)
 
-             ^ y
+             ^ x
              |
     π        |          0
-    ---------|---------->  x
+    ---------|---------->  y
    -π        |
     */
+
     // 计算起始点和结束点的水平角度，由于激光雷达是顺时针旋转，这里取反就是逆时针坐标系
     float startOri = -atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x);
     // atan2的取值范围：[-π, π]，这里加上2π是为了保证起始和结束相差2π，即一周，从哪里开始就从那里结束
@@ -248,8 +249,8 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
             ROS_BREAK();
         }
 
-        //printf("angle %f scanID %d \n", angle, scanID);
-        // 计算该点的水平角
+        // printf("angle %f scanID %d \n", angle, scanID);
+        // 计算该点的水平角 主要有 -pi 到 pi 的区间, 分成两个半圆算的,
         float ori = -atan2(point.y, point.x);
 
         // 保证当前水平角度在开始和结束区间之内

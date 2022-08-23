@@ -155,7 +155,7 @@ struct LidarPlaneFactor
 
 struct LidarPlaneNormFactor
 {
-
+	// 构造函数初始化：当前帧的角点、地图点中的平面法向量、D模的倒数
 	LidarPlaneNormFactor(Eigen::Vector3d curr_point_, Eigen::Vector3d plane_unit_norm_,
 						 double negative_OA_dot_norm_) : curr_point(curr_point_), plane_unit_norm(plane_unit_norm_),
 														 negative_OA_dot_norm(negative_OA_dot_norm_) {}
@@ -163,13 +163,16 @@ struct LidarPlaneNormFactor
 	template <typename T>
 	bool operator()(const T *q, const T *t, T *residual) const
 	{
+		// T_curr2map
 		Eigen::Quaternion<T> q_w_curr{q[3], q[0], q[1], q[2]};
 		Eigen::Matrix<T, 3, 1> t_w_curr{t[0], t[1], t[2]};
+		// 当前帧的角点 P_curr
 		Eigen::Matrix<T, 3, 1> cp{T(curr_point.x()), T(curr_point.y()), T(curr_point.z())};
 		Eigen::Matrix<T, 3, 1> point_w;
 		point_w = q_w_curr * cp + t_w_curr;
-
+		// 平面法向量(A,B,C)
 		Eigen::Matrix<T, 3, 1> norm(T(plane_unit_norm.x()), T(plane_unit_norm.y()), T(plane_unit_norm.z()));
+		// (A,B,C) · P_map + D = 点到面的距离d
 		residual[0] = norm.dot(point_w) + T(negative_OA_dot_norm);
 		return true;
 	}
